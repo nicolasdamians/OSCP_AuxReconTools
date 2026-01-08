@@ -627,6 +627,34 @@ nico.nmap() {
   sudo nmap -p- -sS -sCV --min-rate 5000 -vvv -n -Pn "$target" -oG "allPorts_${target}"
 }
 
+nico.nmap.full() {
+    local target="$1"
+    if [ -z "$target" ]; then
+        echo "Uso: nico.nmap <IP>"
+        return 1
+    fi
+
+    local out="nmap_${target}"
+
+    echo "[1/2] Port discovery..."
+    sudo nmap -p- -sS --min-rate 5000 -Pn "$target" -oG "${out}.gnmap" | grep -E "open"
+
+    local ports=$(grep -oP '\d+(?=/open)' "${out}.gnmap" | sort -un | paste -sd,)
+
+    if [ -z "$ports" ]; then
+        echo "[!] No open ports"
+        return 1
+    fi
+
+    echo "[+] Ports: $ports"
+    echo ""
+    echo "[2/2] Service enumeration..."
+    nmap -p"$ports" -sT -sC -sV -Pn "$target" -oN "${out}.nmap"
+
+    echo ""
+    echo "[✓] Done: ${out}.nmap"
+}
+
 # Nmap UDP scan (IP obligatorio)
 nico.nmap.udp() {
   local target="$1"
